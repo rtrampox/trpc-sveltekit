@@ -50,7 +50,7 @@ type CreateTRPCClientOptions<Router extends AnyTRPCRouter> = (
  */
 export function createTRPCClient<Router extends AnyTRPCRouter>(
   { links, url, transformer, headers }: CreateTRPCClientOptions<Router> = {
-    url: '/trpc'
+    url: '/api/trpc'
   }
 ) {
   let appUrl: string;

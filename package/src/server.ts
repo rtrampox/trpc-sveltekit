@@ -13,24 +13,26 @@ import type { ValidRoute } from './ValidRoute';
  * @see https://kit.svelte.dev/docs/hooks
  *
  * @deprecated Use `fetchRequestHandler` from `@trpc/server/adapters/fetch` instead. See the example below.
+ * @example
  * ```ts
  *   // src/routes/api/trpc/[...paths]/+server.ts
- *
  *   import type { RequestHandler } from '@sveltejs/kit';
  *   import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
  *
  *   import { appRouter, createTRPCContext } from '$lib/trpc';
  *
- *   const handler: RequestHandler = async ({ request, event }) => {
+ *   const handler: RequestHandler = async (event) => {
  *     return fetchRequestHandler({
  *       router: appRouter,
  *       endpoint: '/api/trpc',
- *       req: request,
+ *       req: event.request,
  *       createContext: ({ resHeaders }) => createTRPCContext({ event, resHeaders }),
  *       // responseMeta
  *       // onError
  *     });
  *   };
+ *
+ *   export { handler as GET, handler as POST };
  * ```
  */
 export function createTRPCHandle<Router extends AnyTRPCRouter, URL extends string>({
