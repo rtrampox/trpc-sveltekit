@@ -1,14 +1,17 @@
 import {
   CreateTRPCClientOptions,
-  createTRPCProxyClient,
+  WebSocketLinkOptions,
+  createTRPCClient,
   createWSClient,
   wsLink
 } from '@trpc/client';
-import { AnyRouter } from '@trpc/server';
+import { AnyTRPCRouter } from '@trpc/server';
 
-export function createTRPCWebSocketClient<Router extends AnyRouter>(): ReturnType<
-  typeof createTRPCProxyClient<Router>
-> {
+export function createTRPCWebSocketClient<Router extends AnyTRPCRouter>({
+  transformer
+}: {
+  transformer: WebSocketLinkOptions<Router>['transformer'];
+}): ReturnType<typeof createTRPCClient<Router>> {
   if (typeof location === 'undefined') return;
 
   const uri = `${location.protocol === 'http:' ? 'ws:' : 'wss:'}//${location.host}/trpc`;
@@ -17,7 +20,7 @@ export function createTRPCWebSocketClient<Router extends AnyRouter>(): ReturnTyp
     url: uri
   });
 
-  return createTRPCProxyClient<Router>({
-    links: [wsLink({ client: wsClient })]
+  return createTRPCClient<Router>({
+    links: [wsLink({ client: wsClient, transformer: transformer as any })]
   } as CreateTRPCClientOptions<Router>);
 }

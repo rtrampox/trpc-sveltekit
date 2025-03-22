@@ -1,14 +1,15 @@
+import { getRequestEvent } from '$app/server';
 import {
   httpBatchLink,
-  createTRPCProxyClient as internalCreateTRPCClient,
+  HTTPBatchLinkOptions,
+  createTRPCClient as internalCreateTRPCClient,
   type HTTPHeaders,
   type TRPCLink
 } from '@trpc/client';
-import type { AnyRouter } from '@trpc/server';
+import type { AnyTRPCRouter } from '@trpc/server';
+import { page } from '$app/state';
 
-export type TRPCClientInit = { fetch?: typeof window.fetch; url: { origin: string } };
-
-type CreateTRPCClientOptions<Router extends AnyRouter> = (
+type CreateTRPCClientOptions<Router extends AnyTRPCRouter> = (
   | {
       links?: never;
 
@@ -17,13 +18,6 @@ type CreateTRPCClientOptions<Router extends AnyRouter> = (
        * @default '/trpc'
        */
       url?: `/${string}`;
-
-      /**
-       * A page store or SvelteKit load event.
-       * @see https://kit.svelte.dev/docs/modules#$app-stores
-       * @see https://kit.svelte.dev/docs/load
-       */
-      init?: TRPCClientInit;
 
       /**
        * Additional headers to send with the request. Can be a function that returns headers.
@@ -47,33 +41,40 @@ type CreateTRPCClientOptions<Router extends AnyRouter> = (
    * A function that transforms the data before transferring it.
    * @see https://trpc.io/docs/data-transformers
    */
-  transformer?: Router['_def']['_config']['transformer'];
+  transformer?: HTTPBatchLinkOptions<Router['_def']['_config']['$types']>['transformer'];
 };
 
 /**
  * Create a tRPC client.
  * @see https://trpc.io/docs/vanilla
  */
-export function createTRPCClient<Router extends AnyRouter>(
-  { links, url = '/trpc', transformer, init, headers }: CreateTRPCClientOptions<Router> = {
+export function createTRPCClient<Router extends AnyTRPCRouter>(
+  { links, url, transformer, headers }: CreateTRPCClientOptions<Router> = {
     url: '/trpc'
   }
 ) {
-  if (links) return internalCreateTRPCClient<Router>({ transformer, links });
+  let appUrl: string;
+  let appFetch: Window['fetch'];
 
-  if (typeof window === 'undefined' && !init) {
-    throw new Error(
-      'Calling createTRPCClient() on the server requires passing a valid LoadEvent argument'
-    );
+  try {
+    // try to get the request event if we're on the server
+    const event = getRequestEvent();
+    appFetch = event.fetch;
+    appUrl = event.url.origin;
+  } catch {
+    // as the getRequestEvent throws on client, we will catch and fallback to defaults.
+    appFetch = fetch;
+    appUrl = page.url.origin ?? location.origin;
   }
 
+  if (links) return internalCreateTRPCClient<Router>({ links });
+
   return internalCreateTRPCClient<Router>({
-    transformer,
     links: [
       httpBatchLink({
-        url:
-          typeof window === 'undefined' ? `${init.url.origin}${url}` : `${location.origin}${url}`,
-        fetch: typeof window === 'undefined' ? init.fetch : init?.fetch ?? window.fetch,
+        url: `${appUrl}${url}`,
+        fetch: (input, init) => appFetch(input, { credentials: 'same-origin', ...init }),
+        transformer: transformer as any,
         headers
       })
     ]

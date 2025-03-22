@@ -1,13 +1,7 @@
 import type { Handle, RequestEvent } from '@sveltejs/kit';
-import type {
-  AnyRouter,
-  ProcedureType,
-  TRPCError,
-  inferRouterContext,
-  inferRouterError
-} from '@trpc/server';
-import { resolveHTTPResponse, type ResponseMeta } from '@trpc/server/http';
-import type { TRPCResponse } from '@trpc/server/rpc';
+import type { AnyTRPCRouter, TRPCProcedureType, TRPCError, inferRouterContext } from '@trpc/server';
+import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+import { ResponseMetaFn } from '@trpc/server/http';
 import { serialize, type CookieSerializeOptions } from 'cookie';
 import type { ValidRoute } from './ValidRoute';
 
@@ -17,8 +11,29 @@ import type { ValidRoute } from './ValidRoute';
  * If you want to use it in conjunction with other SvelteKit handles,
  * consider [the sequence helper function](https://kit.svelte.dev/docs/modules#sveltejs-kit-hooks).
  * @see https://kit.svelte.dev/docs/hooks
+ *
+ * @deprecated Use `fetchRequestHandler` from `@trpc/server/adapters/fetch` instead. See the example below.
+ * ```ts
+ *   // src/routes/api/trpc/[...paths]/+server.ts
+ *
+ *   import type { RequestHandler } from '@sveltejs/kit';
+ *   import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+ *
+ *   import { appRouter, createTRPCContext } from '$lib/trpc';
+ *
+ *   const handler: RequestHandler = async ({ request, event }) => {
+ *     return fetchRequestHandler({
+ *       router: appRouter,
+ *       endpoint: '/api/trpc',
+ *       req: request,
+ *       createContext: ({ resHeaders }) => createTRPCContext({ event, resHeaders }),
+ *       // responseMeta
+ *       // onError
+ *     });
+ *   };
+ * ```
  */
-export function createTRPCHandle<Router extends AnyRouter, URL extends string>({
+export function createTRPCHandle<Router extends AnyTRPCRouter, URL extends string>({
   router,
   url = '/trpc',
   createContext,
@@ -49,13 +64,7 @@ export function createTRPCHandle<Router extends AnyRouter, URL extends string>({
    * A function that returns the response meta.
    * @see https://trpc.io/docs/caching#using-responsemeta-to-cache-responses
    */
-  responseMeta?: (opts: {
-    data: TRPCResponse<unknown, inferRouterError<Router>>[];
-    ctx?: inferRouterContext<Router>;
-    paths?: string[];
-    type: ProcedureType;
-    errors: TRPCError[];
-  }) => ResponseMeta;
+  responseMeta?: ResponseMetaFn<Router>;
 
   /**
    * A function that is called when an error occurs.
@@ -67,7 +76,7 @@ export function createTRPCHandle<Router extends AnyRouter, URL extends string>({
     path: string;
     input: unknown;
     req: RequestInit;
-    type: ProcedureType | 'unknown';
+    type: TRPCProcedureType;
   }) => void;
 }): Handle {
   return async ({ event, resolve }) => {
@@ -76,19 +85,13 @@ export function createTRPCHandle<Router extends AnyRouter, URL extends string>({
         headers: Record<string, string | string[]>;
       };
 
-      const req = {
-        method: request.method,
-        headers: request.headers,
-        query: event.url.searchParams,
-        body: await request.text()
-      };
-
       // Using the default `event.setHeaders` and `event.cookies` will not work
-      // as the event in not resolved by SvelteKit. Instead, we "proxy" the access
+      // as the event is not resolved by SvelteKit. Instead, we "proxy" the access
       // to the headers.
       const originalSetHeaders = event.setHeaders;
       const originalSetCookies = event.cookies.set;
       const originalDeleteCookies = event.cookies.delete;
+
       const headersProxy: Record<string, string> = {};
       const cookiesProxy: Record<string, { value: string; options: CookieSerializeOptions }> = {};
 
@@ -106,30 +109,28 @@ export function createTRPCHandle<Router extends AnyRouter, URL extends string>({
         // Still call the original `event.setHeaders` function, as it may be used in SvelteKit internals.
         originalSetHeaders(headers);
       };
+
       event.cookies.set = (name, value, options) => {
         cookiesProxy[name] = { value, options: { ...defaultCookiesOptions, ...options } };
         originalSetCookies(name, value, options);
       };
+
       event.cookies.delete = (name, options) => {
         cookiesProxy[name] = { value: '', options: { ...options, maxAge: 0 } };
         originalDeleteCookies(name, options);
       };
 
-      const httpResponse = await resolveHTTPResponse({
+      const httpResponse = await fetchRequestHandler({
         router,
-        req,
-        path: event.url.pathname.substring(url.length + 1),
+        req: request,
+        endpoint: event.url.pathname.substring(url.length + 1),
         createContext: async () => createContext?.(event),
         responseMeta,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onError: onError as any
       });
 
-      const { status, headers, body } = httpResponse as {
-        status: number;
-        headers: Record<string, string>;
-        body: string;
-      };
+      const { status, headers, body } = httpResponse;
 
       const finalHeaders = new Headers();
 
