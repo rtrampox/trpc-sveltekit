@@ -22,7 +22,7 @@ concurrency:
 jobs:
   # Build job
   build:
-    if: github.repository_owner == 'icflorescu'
+    if: github.repository_owner == 'rtrampox'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -47,7 +47,7 @@ jobs:
 
   # NPM publishing job
   publish:
-    if: github.repository_owner == 'icflorescu'
+    if: github.repository_owner == 'rtrampox'
     environment:
       name: npm-registry
     runs-on: ubuntu-latest
