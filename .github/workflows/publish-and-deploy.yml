@@ -48,8 +48,6 @@ jobs:
   # NPM publishing job
   publish:
     if: github.repository_owner == 'rtrampox'
-    environment:
-      name: npm-registry
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -61,14 +59,14 @@ jobs:
           token: ${{ secrets.NPM_TOKEN }}
 
   # Pages deployment job
-  deploy:
-    if: github.repository_owner == 'icflorescu'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: [build, publish]
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+  # deploy:
+  #   if: github.repository_owner == 'icflorescu'
+  #   environment:
+  #     name: github-pages
+  #     url: ${{ steps.deployment.outputs.page_url }}
+  #   runs-on: ubuntu-latest
+  #   needs: [build, publish]
+  #   steps:
+  #     - name: Deploy to GitHub Pages
+  #       id: deployment
+  #       uses: actions/deploy-pages@v4
