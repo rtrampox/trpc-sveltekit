@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PageServerData } from './$types';
 
-  export let data: PageServerData;
+  let { data }: { data: PageServerData } = $props();
 </script>
 
 <h6>Data loaded in<br /><code>+page.ts</code></h6>

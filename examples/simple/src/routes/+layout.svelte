@@ -34,7 +34,7 @@
   <slot />
 </main>
 
-<footer />
+<footer></footer>
 
 <style lang="scss">
   header {

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { page } from '$app/stores';
   import { trpc } from '$lib/trpc/client';
 
   let greeting = 'press the button to load data';
@@ -7,7 +6,7 @@
 
   const loadData = async () => {
     loading = true;
-    greeting = await trpc($page).greeting.query();
+    greeting = await trpc().greeting.query();
     loading = false;
   };
 </script>
@@ -19,6 +18,9 @@
   role="button"
   class="secondary"
   aria-busy={loading}
-  on:click|preventDefault={loadData}>Load</a
+  onclick={(e) => {
+    e.preventDefault();
+    loadData();
+  }}>Load</a
 >
 <p>{greeting}</p>
